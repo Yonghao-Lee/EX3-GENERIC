@@ -73,7 +73,7 @@ void print_word(const void *data) {
     fprintf(stderr, "Error: Attempted to print NULL data.\n");
     return;
   }
-  printf("%s", (const char *)data);
+  printf("%s ", (const char *)data);
 }
 /**
  * Compares two strings.
