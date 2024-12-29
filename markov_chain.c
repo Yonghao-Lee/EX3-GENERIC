@@ -1,320 +1,330 @@
 #include "markov_chain.h"
-#include<string.h>
-#include<stdlib.h>
-
-
-Node *get_node_from_database(MarkovChain *markov_chain, void *data_ptr){
-  if(markov_chain == NULL || markov_chain->database == NULL){
-    return NULL;
-  }
-  LinkedList* database = markov_chain->database;
-  Node* current_node = database->first;
-  while(current_node != NULL){
-    if(markov_chain->comp_func((current_node->data)->data, data_ptr) == 0){
-      return current_node;
-    }
-    current_node = current_node->next;
-  }
-  return NULL;
-}
-
-
-Node *add_to_database(MarkovChain *markov_chain, void *data_ptr){
-  if (markov_chain == NULL || markov_chain->database == NULL)
-  {
-    return NULL;
-  }
-  LinkedList* database = markov_chain->database;
-  Node* current_node = database->first;
-
-  // Check if data_ptr is already in the database
-  while (current_node != NULL){
-    if(markov_chain->comp_func((current_node->data)->data, data_ptr) == 0){
-      return current_node; // Found an existing node
-    }
-    current_node = current_node->next;
-  }
-
-  // Data not found, creat a new node
-  Node *new_node = malloc(sizeof(Node));
-  if(new_node == NULL){
-    printf("Memory allocation failed in "
-          "add_to_database()\n");
-    return NULL;
-  }
-
-  // Allocate memory for the markov node
-  new_node->data = malloc(sizeof(MarkovNode));
-  if (new_node->data == NULL)
-  {
-    printf("Memory allocation failed in "
-           "add_to_database()\n");
-    free(new_node);
-    return NULL;
-  }
-
-  // Duplicate the string data of the markov node
-  new_node->data->data = markov_chain->copy_func(data_ptr);
-  if (new_node->data->data == NULL)
-  {
-    printf("Memory allocation failed in "
-           "add_to_database()\n");
-    free(new_node->data);
-    free(new_node);
-    return NULL;
-  }
-
-  new_node->data->frequency_list = NULL;
-
-  new_node->next = NULL;
-
-  if (database->first == NULL)
-  {
-    database->first = new_node;
-    database->last = new_node;
-  }
-  else
-  {
-    database->last->next = new_node;
-    database->last = new_node;
-  }
-
-  return new_node;
-}
-
-
-int add_node_to_freqlist_helper(MarkovChain *markov_chain, Node *firstnode){
-  if (markov_chain->is_last(firstnode->data->data)){
-    return 0; // Terminal node;
-  }
-  return 1; // Non-terminal node;
-}
-int add_node_to_frequency_list(MarkovNode *first_node,
-                               MarkovNode *second_node){
-  if (first_node == NULL || second_node == NULL
-  || first_node->data == NULL || second_node->data == NULL)
-  {
-    return EXIT_FAILURE;
-  }
-  MarkovNodeFrequency* frequency_list =
-  first_node->frequency_list;
-  if (frequency_list == NULL)
-  {
-    frequency_list = malloc(2 *
-    sizeof(MarkovNodeFrequency));
-    if (frequency_list == NULL)
-    {
-      printf("Memory allocation failed "
-      "in add_node_to_frequency_list()\n");
-      return EXIT_FAILURE;
-    }
-    frequency_list[0].markov_node = second_node;
-    frequency_list[1].markov_node = NULL;
-    frequency_list[0].frequency = 1;
-    frequency_list[1].frequency = 0;
-    first_node->frequency_list = frequency_list;
-    return EXIT_SUCCESS;
-  }
-  int i = 0;
-  for (i = 0; frequency_list[i].markov_node != NULL; i++)
-  {
-    if (frequency_list[i].markov_node == second_node)
-    {
-      frequency_list[i].frequency++;
-      return EXIT_SUCCESS;
-    }
-  }
-  // Node not found, reallocate memory to include it
-  MarkovNodeFrequency* new_list =
-  realloc(frequency_list,
-  (i + 2)
-  *sizeof(MarkovNodeFrequency));
-  if (new_list == NULL)
-  {
-    printf("Memory allocation failed in "
-    "add_node_to_frequency_list()\n");
-    return EXIT_FAILURE;
-  }
-
-  // Update the frequency list
-  frequency_list = new_list;
-  first_node->frequency_list = frequency_list;
-  frequency_list[i].markov_node = second_node;
-  frequency_list[i].frequency = 1;
-  frequency_list[i + 1].markov_node = NULL;
-  frequency_list[i + 1].frequency = 0;
-  return EXIT_SUCCESS;
-}
-
-
-
-
-void free_database(MarkovChain **chain_ptr){
-  if (chain_ptr == NULL || *chain_ptr == NULL)
-  {
-    return; // Nothing to free
-  }
-  MarkovChain* chain = *chain_ptr;
-  LinkedList* database = chain->database;
-  // Free all nodes in the linked list
-  Node* current_node = database->first;
-  while (current_node != NULL)
-  {
-    Node* next_node = current_node->next;
-
-    // Free the MarkovNode within the current node
-    MarkovNode* markov_node = current_node->data;
-    if (markov_node != NULL)
-    {
-      // Free the frequency_list in the MarkovNode
-      if (markov_node->frequency_list != NULL) {
-        free(markov_node->frequency_list);
-        markov_node->frequency_list = NULL;
-      }
-      if (markov_node->data != NULL) {
-        chain->free_data(markov_node->data);
-        markov_node->data = NULL;
-      }
-      // Free the MarkovNode itself
-      free(markov_node);
-    }
-
-    // Free the current node
-    free(current_node);
-
-    current_node = next_node;
-  }
-
-  // Free the linked list structure
-  free(database);
-
-  // Free the MarkovChain itself
-  free(chain);
-
-  // Set the pointer to NULL to avoid dangling pointers
-  *chain_ptr = NULL;
-}
-int get_chain_length(const LinkedList* database)
-{
-  if (database == NULL)
-  {
-    return 0;
-  }
-  int length = 0;
-  Node* current_node = database->first;
-  while (current_node != NULL)
-  {
-    length++;
-    current_node = current_node->next;
-  }
-  return length;
-}
-int get_random_number(int max_number)
-{
-  return rand() % max_number;
-}
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 /**
- * Get one random markov node from the given markov_chain's database.
- * @param markov_chain
- * @return MarkovNode of the chosen state that is not a "last state"
- * in sequence.
+ * Returns the node that wraps data_ptr if it exists in database;
+ * otherwise returns NULL.
  */
-MarkovNode* get_first_random_node(MarkovChain* markov_chain)
-{
-  if (markov_chain == NULL || markov_chain->database == NULL
-      || markov_chain->database->first == NULL)
-  {
-    return NULL;
-  }
-  const int total_length =
-      get_chain_length(markov_chain->database);
-  if (total_length == 0)
-  {
-    return NULL;
-  }
-
-  Node* current_node;
-  do
-  {
-    int random_index = get_random_number(total_length);
-
-    current_node = markov_chain->database->first;
-    for (int i = 0; i < random_index; i++)
-    {
-      current_node = current_node->next;
+Node *get_node_from_database(MarkovChain *markov_chain, void *data_ptr) {
+    if (!markov_chain || !markov_chain->database) {
+        return NULL;
     }
-  }
-  while ((markov_chain->is_last)(current_node->data->data));
-  return current_node->data;
-}
+    LinkedList *database = markov_chain->database;
+    Node *current = database->first;
 
-MarkovNode* get_next_random_node(MarkovNode* cur_markov_node)
-{
-  if (cur_markov_node == NULL ||
-      cur_markov_node->frequency_list == NULL)
-  {
-    return NULL;
-  }
-
-  int total_frequency = 0;
-  MarkovNodeFrequency* frequency_list =
-      cur_markov_node->frequency_list;
-
-  for (int i = 0; frequency_list[i].markov_node != NULL; i++)
-  {
-    total_frequency += frequency_list[i].frequency;
-  }
-
-  int random_num = get_random_number(total_frequency);
-  int frequency = 0;
-  for (int i = 0; frequency_list[i].markov_node != NULL; i++)
-  {
-    frequency += frequency_list[i].frequency;
-    if (frequency > random_num)
-    {
-      return frequency_list[i].markov_node;
+    while (current) {
+        MarkovNode *mnode = (MarkovNode *)current->data;
+        if (markov_chain->comp_func(mnode->data, data_ptr) == 0) {
+            return current;
+        }
+        current = current->next;
     }
-  }
-  return NULL;
+    return NULL;
 }
 
 /**
- * Receive markov_chain, generate and print random sequences out of it. The
- * sequence most have at least 2 words in it.
- * @param markov_chain
- * @param first_node markov_node to start with, if NULL- choose a
- * random markov_node
- * @param  max_length maximum length of chain to generate
+ * If data_ptr is in the database, return that node. Otherwise allocate
+ * a new MarkovNode for it, append it to the list, and return the newly created node.
+ */
+Node *add_to_database(MarkovChain *markov_chain, void *data_ptr) {
+    if (!markov_chain || !markov_chain->database) {
+        return NULL;
+    }
+    LinkedList* database = markov_chain->database;
+
+    // Check if data_ptr is already in the database
+    Node *cur = database->first;
+    while (cur) {
+        MarkovNode *mnode = (MarkovNode *)cur->data;
+        if (markov_chain->comp_func(mnode->data, data_ptr) == 0) {
+            return cur; // Found existing node
+        }
+        cur = cur->next;
+    }
+
+    // Not found => create a new Node
+    Node *new_node = malloc(sizeof(Node));
+    if (!new_node) {
+        printf("Memory allocation failed in add_to_database()\n");
+        return NULL;
+    }
+
+    // Allocate a MarkovNode
+    MarkovNode *mnode = malloc(sizeof(MarkovNode));
+    if (!mnode) {
+        printf("Memory allocation failed in add_to_database()\n");
+        free(new_node);
+        return NULL;
+    }
+    // Initialize MarkovNode
+    mnode->data = markov_chain->copy_func(data_ptr);
+    if (!mnode->data) {
+        printf("Memory allocation failed in add_to_database() for mnode->data\n");
+        free(mnode);
+        free(new_node);
+        return NULL;
+    }
+    mnode->frequency_list = NULL;
+    mnode->freq_size = 0;
+    mnode->freq_capacity = 0;
+
+    // Link MarkovNode to Node
+    new_node->data = mnode;
+    new_node->next = NULL;
+
+    // Append to the linked list
+    if (!database->first) {
+        database->first = new_node;
+        database->last  = new_node;
+    } else {
+        database->last->next = new_node;
+        database->last = new_node;
+    }
+
+    return new_node;
+}
+
+/**
+ * Helper to check if a Node is non-terminal or not.
+ */
+int add_node_to_freqlist_helper(MarkovChain *markov_chain, Node *firstnode) {
+    if (markov_chain->is_last(((MarkovNode*)firstnode->data)->data)) {
+        return 0; // Terminal node
+    }
+    return 1; // Non-terminal node
+}
+
+/**
+ * Add second_node to the frequency list of first_node.
+ * If it already exists, increment frequency; else expand the array if needed.
+ */
+int add_node_to_frequency_list(MarkovNode *first_node, MarkovNode *second_node) {
+    if (!first_node || !second_node || !first_node->data || !second_node->data) {
+        return EXIT_FAILURE;
+    }
+
+    // If there's no frequency_list yet, allocate initial capacity:
+    if (!first_node->frequency_list) {
+        first_node->freq_capacity = 2; // start small
+        first_node->freq_size = 0;
+        first_node->frequency_list = malloc(first_node->freq_capacity *
+                                            sizeof(MarkovNodeFrequency));
+        if (!first_node->frequency_list) {
+            printf("Memory allocation failed in add_node_to_frequency_list()\n");
+            return EXIT_FAILURE;
+        }
+    }
+
+    // Check if second_node is already in the frequency_list
+    for (size_t i = 0; i < first_node->freq_size; i++) {
+        if (first_node->frequency_list[i].markov_node == second_node) {
+            first_node->frequency_list[i].frequency++;
+            return EXIT_SUCCESS;
+        }
+    }
+
+    // Not found => need to insert
+    if (first_node->freq_size == first_node->freq_capacity) {
+        size_t new_capacity = first_node->freq_capacity * 2;
+        MarkovNodeFrequency *new_list = realloc(
+            first_node->frequency_list,
+            new_capacity * sizeof(MarkovNodeFrequency)
+        );
+        if (!new_list) {
+            printf("Memory allocation failed in add_node_to_frequency_list()\n");
+            return EXIT_FAILURE;
+        }
+        first_node->frequency_list = new_list;
+        first_node->freq_capacity  = new_capacity;
+    }
+
+    // Insert at freq_size
+    first_node->frequency_list[first_node->freq_size].markov_node = second_node;
+    first_node->frequency_list[first_node->freq_size].frequency   = 1;
+    first_node->freq_size++;
+
+    return EXIT_SUCCESS;
+}
+
+/**
+ * Free the entire database (all Nodes, MarkovNodes, frequency lists, etc.)
+ */
+void free_database(MarkovChain **chain_ptr)
+{
+    if (!chain_ptr || !(*chain_ptr))
+    {
+        return; // Nothing to free
+    }
+    MarkovChain *chain = *chain_ptr;         // the MarkovChain* on the heap
+    LinkedList *database = chain->database;  // also on the heap
+
+    if (database != NULL)
+    {
+        Node *current_node = database->first;
+        while (current_node != NULL)
+        {
+            Node *next_node = current_node->next;
+
+            // Free the MarkovNode
+            MarkovNode *markov_node = current_node->data;
+            if (markov_node)
+            {
+                // free the frequency list
+                free(markov_node->frequency_list);
+                markov_node->frequency_list = NULL;
+
+                // free the user data (Cell*)
+                if (markov_node->data)
+                {
+                    chain->free_data(markov_node->data);
+                    markov_node->data = NULL;
+                }
+
+                // free the MarkovNode struct
+                free(markov_node);
+            }
+
+            // free the linked-list node itself
+            free(current_node);
+            current_node = next_node;
+        }
+
+        // free the LinkedList struct
+        free(database);
+        chain->database = NULL;
+    }
+
+    // Finally, free the MarkovChain struct itself
+    free(chain);
+    *chain_ptr = NULL;
+}
+
+
+/**
+ * Return length of database
+ */
+int get_chain_length(const LinkedList *database) {
+    if (!database) {
+        return 0;
+    }
+    int length = 0;
+    Node *cur = database->first;
+    while (cur) {
+        length++;
+        cur = cur->next;
+    }
+    return length;
+}
+
+/**
+ * Return a random number in [0, max_number)
+ */
+int get_random_number(int max_number) {
+    return rand() % max_number;
+}
+
+/**
+ * Return a random node (by index) that is NOT a terminal node.
+ */
+MarkovNode* get_first_random_node(MarkovChain *markov_chain) {
+    if (!markov_chain || !markov_chain->database ||
+        !markov_chain->database->first) {
+        return NULL;
+    }
+    int total_length = get_chain_length(markov_chain->database);
+    if (total_length == 0) {
+        return NULL;
+    }
+
+    Node *current_node = NULL;
+    do {
+        int random_index = get_random_number(total_length);
+        current_node = markov_chain->database->first;
+        for (int i = 0; i < random_index; i++) {
+            current_node = current_node->next;
+        }
+    } while (markov_chain->is_last(((MarkovNode*)current_node->data)->data));
+
+    return (MarkovNode*)current_node->data;
+}
+
+/**
+ * Weighted-random next node from cur_markov_node->frequency_list
+ */
+MarkovNode* get_next_random_node(MarkovNode* cur_markov_node) {
+    if (!cur_markov_node || !cur_markov_node->frequency_list) {
+        return NULL;
+    }
+
+    // Sum of frequencies
+    int total_frequency = 0;
+    for (size_t i = 0; i < cur_markov_node->freq_size; i++) {
+        total_frequency += cur_markov_node->frequency_list[i].frequency;
+    }
+    if (total_frequency == 0) {
+        return NULL;
+    }
+
+    int random_num = get_random_number(total_frequency);
+    int cumulative = 0;
+    for (size_t i = 0; i < cur_markov_node->freq_size; i++) {
+        cumulative += cur_markov_node->frequency_list[i].frequency;
+        if (cumulative > random_num) {
+            return cur_markov_node->frequency_list[i].markov_node;
+        }
+    }
+    return NULL; // theoretically never happens
+}
+
+/**
+ * Generate and print a random sequence from first_node,
+ * or until we hit a terminal node, up to max_length steps.
  */
 void generate_random_sequence(MarkovChain *markov_chain,
-                              MarkovNode *first_node, int max_length)
+                              MarkovNode  *first_node,
+                              int          max_length)
 {
-  if (first_node == NULL ||
-  first_node->frequency_list == NULL)
-  {
-    return;
-  }
-  MarkovNode* current_node = first_node;
-  int word_count = 0;
-  while (current_node != NULL && word_count < max_length)
-  {
-    markov_chain->print_func(current_node->data);
-    if ((markov_chain->is_last)(current_node->data))
+    // Step 1: Reset the static pointer to ensure correct formatting
+    reset_sequence_printing();
+
+    if (!first_node || !first_node->frequency_list)
     {
-      break;
+        return;
     }
-    printf(" ");
 
-    current_node = get_next_random_node(current_node);
-    if (current_node == NULL){
-      break;
+    MarkovNode *current_node = first_node;
+    int step_count = 0;
+
+    while (current_node && step_count < max_length)
+    {
+        // Print the current node
+        markov_chain->print_func(current_node->data);
+
+        // Stop if terminal node
+        if (markov_chain->is_last(current_node->data))
+        {
+            break;
+        }
+
+        // Move on to the next node
+        MarkovNode *next_node = get_next_random_node(current_node);
+        if (!next_node)
+        {
+            break; // No next node available
+        }
+
+        current_node = next_node;
+        step_count++;
+
+        // Check if max_length is reached
+        if (step_count == max_length)
+        {
+            printf(" ->");
+        }
     }
-    word_count++;
-  }
-  printf("\n");
+
+    // End the sequence
+    printf("\n");
 }
-
-
-
-

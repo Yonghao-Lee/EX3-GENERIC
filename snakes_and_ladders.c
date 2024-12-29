@@ -1,9 +1,11 @@
 #include <string.h> // For strlen(), strcmp(), strcpy()
 #include "markov_chain.h"
+#include <errno.h>
 
+#define BASE_10 10
 #define MAX(X, Y) (((X) < (Y)) ? (Y) : (X))
 
-#define EMPTY -1
+#define EMPTY (-1)
 #define BOARD_SIZE 100
 #define MAX_GENERATION_LENGTH 60
 
@@ -42,19 +44,86 @@ const int transitions[][2] = {
 /**
  * struct represents a Cell in the game board
  */
-typedef struct Cell {
+typedef struct Cell
+{
     int number; // Cell number 1-100
     int ladder_to; // cell which ladder leads to, if there is one
     int snake_to; // cell which snake leads to, if there is one
     //both ladder_to and snake_to should be -1 if the Cell doesn't have them
 } Cell;
+// A static/global variable that only this .c file sees.
+static const Cell *g_prev_cell = NULL;
+
+/**
+ * Reset the "previous cell" pointer before printing a new random sequence.
+ */
+void reset_sequence_printing(void)
+{
+    g_prev_cell = NULL;
+}
+
+
+int compare_cells(const void *data1, const void *data2) {
+    if (!data1 || !data2) {
+        return -1;
+    }
+    const Cell *c1 = (const Cell*)data1;
+    const Cell *c2 = (const Cell*)data2;
+    return (c1->number - c2->number);
+}
+
+void print_cell(const void *data) {
+    const Cell *new_cell = (const Cell *)data;
+
+    if (g_prev_cell == NULL) {
+        // First cell
+        printf("[%d]", new_cell->number);
+    } else {
+        if (g_prev_cell->ladder_to == new_cell->number) {
+            printf(" -ladder to-> [%d]", new_cell->number);
+        } else if (g_prev_cell->snake_to == new_cell->number) {
+            printf(" -snake to-> [%d]", new_cell->number);
+        } else {
+            // Normal step
+            printf(" -> [%d]", new_cell->number);
+        }
+    }
+
+    // Update the global pointer for the next cell
+    g_prev_cell = new_cell;
+}
+
+
+void *copy_cell(const void *data) {
+    if (!data) return NULL;
+    const Cell *orig = (const Cell*)data;
+    Cell *copy = malloc(sizeof(Cell));
+    if (!copy) {
+        printf(ALLOCATION_ERROR_MESSAGE);
+        return NULL;
+    }
+    *copy = *orig;
+    return copy;
+}
+
+void free_cell(void *data) {
+    free(data);
+}
+
+bool is_terminal_cell(const void *data) {
+    if (!data) return false;
+    const Cell *cell = (const Cell*)data;
+    return (cell->number == BOARD_SIZE);
+}
+
+
 
 /**
  * allocates memory for cells on the board and initalizes them
  * @param cells Array of pointer to Cell, represents game board
  * @return EXIT_SUCCESS if successful, else EXIT_FAILURE
  */
-int create_board(Cell *cells[BOARD_SIZE])
+int create_board(Cell* cells[BOARD_SIZE])
 {
     for (int i = 0; i < BOARD_SIZE; i++)
     {
@@ -78,7 +147,8 @@ int create_board(Cell *cells[BOARD_SIZE])
         if (from < to)
         {
             cells[from - 1]->ladder_to = to;
-        } else
+        }
+        else
         {
             cells[from - 1]->snake_to = to;
         }
@@ -86,11 +156,11 @@ int create_board(Cell *cells[BOARD_SIZE])
     return EXIT_SUCCESS;
 }
 
-int add_cells_to_database(MarkovChain *markov_chain, Cell *cells[BOARD_SIZE])
+int add_cells_to_database(MarkovChain* markov_chain, Cell* cells[BOARD_SIZE])
 {
     for (size_t i = 0; i < BOARD_SIZE; i++)
     {
-        Node *tmp = add_to_database(markov_chain, cells[i]);
+        Node* tmp = add_to_database(markov_chain, cells[i]);
         if (tmp == NULL)
         {
             return EXIT_FAILURE;
@@ -99,7 +169,7 @@ int add_cells_to_database(MarkovChain *markov_chain, Cell *cells[BOARD_SIZE])
     return EXIT_SUCCESS;
 }
 
-int set_nodes_frequencies(MarkovChain *markov_chain, Cell *cells[BOARD_SIZE])
+int set_nodes_frequencies(MarkovChain* markov_chain, Cell* cells[BOARD_SIZE])
 {
     MarkovNode *from_node = NULL, *to_node = NULL;
     size_t index_to;
@@ -122,7 +192,7 @@ int set_nodes_frequencies(MarkovChain *markov_chain, Cell *cells[BOARD_SIZE])
         {
             for (int j = 1; j <= DICE_MAX; j++)
             {
-                index_to = ((Cell *) (from_node->data))->number + j - 1;
+                index_to = ((Cell*)(from_node->data))->number + j - 1;
                 if (index_to >= BOARD_SIZE)
                 {
                     break;
@@ -145,9 +215,9 @@ int set_nodes_frequencies(MarkovChain *markov_chain, Cell *cells[BOARD_SIZE])
  * @param markov_chain
  * @return EXIT_SUCCESS or EXIT_FAILURE
  */
-int fill_database_snakes(MarkovChain *markov_chain)
+int fill_database_snakes(MarkovChain* markov_chain)
 {
-    Cell *cells[BOARD_SIZE];
+    Cell* cells[BOARD_SIZE];
     if (create_board(cells) == EXIT_FAILURE)
     {
         return EXIT_FAILURE;
@@ -161,7 +231,7 @@ int fill_database_snakes(MarkovChain *markov_chain)
         return EXIT_FAILURE;
     }
 
-    if(set_nodes_frequencies(markov_chain, cells) == EXIT_FAILURE)
+    if (set_nodes_frequencies(markov_chain, cells) == EXIT_FAILURE)
     {
         for (size_t i = 0; i < BOARD_SIZE; i++)
         {
@@ -178,12 +248,70 @@ int fill_database_snakes(MarkovChain *markov_chain)
     return EXIT_SUCCESS;
 }
 
-/**
- * @param argc num of arguments
- * @param argv 1) Seed
- *             2) Number of sentences to generate
- * @return EXIT_SUCCESS or EXIT_FAILURE
- */
-int main(int argc, char *argv[])
-{
+bool err_parsing_msg(const char *endptr) {
+    if (errno == ERANGE) {
+        printf("Error: Value out of range.\n");
+        return false;
+    } else if (*endptr != '\0') {
+        printf("Error: Invalid character '%c' found in input.\n", *endptr);
+        return false;
+    }
+    return true;
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
+        printf("%s\n", NUM_ARGS_ERROR);
+        return EXIT_FAILURE;
+    }
+    char *endptr;
+    errno = 0;
+    unsigned int seed = (unsigned int)strtol(argv[1], &endptr, BASE_10);
+    if (!err_parsing_msg(endptr)) {
+        return EXIT_FAILURE;
+    }
+    srand(seed);
+
+    errno = 0;
+    int num_paths = (int)strtol(argv[2], &endptr, BASE_10);
+    if (!err_parsing_msg(endptr)) {
+        return EXIT_FAILURE;
+    }
+
+    // Create the MarkovChain
+    MarkovChain *markov_chain = malloc(sizeof(MarkovChain));
+    markov_chain->database = malloc(sizeof(LinkedList));
+    if (!markov_chain->database) {
+        printf(ALLOCATION_ERROR_MESSAGE);
+        return EXIT_FAILURE;
+    }
+    markov_chain->database->first = NULL;
+    markov_chain->database->last = NULL;
+
+    // Assign function pointers
+    markov_chain->print_func  = print_cell;
+    markov_chain->comp_func   = compare_cells;
+    markov_chain->copy_func   = copy_cell;
+    markov_chain->free_data   = free_cell;
+    markov_chain->is_last     = is_terminal_cell;
+
+    // Build the database with our board
+    if (fill_database_snakes(markov_chain) == EXIT_FAILURE) {
+        free(markov_chain->database);
+        return EXIT_FAILURE;
+    }
+
+    // Generate random paths
+    for (int i = 0; i < num_paths; i++) {
+        printf("Random Walk %d: ", i + 1);
+        MarkovNode *start_node = markov_chain->database->first->data;
+        // Optionally, pick a truly random start:
+        // MarkovNode *start_node = get_first_random_node(&markov_chain);
+        generate_random_sequence(markov_chain, start_node, MAX_GENERATION_LENGTH);
+        printf("\n");
+    }
+
+    // Clean up
+    free_database(&markov_chain);
+    return EXIT_SUCCESS;
 }

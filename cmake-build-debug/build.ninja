@@ -49,8 +49,8 @@ cmake_ninja_workdir = /Users/yonghaolee/Documents/C$:CPP_winter_2024/Ex_3/EX3-TE
 
 build cmake_object_order_depends_target_EX3_TEST: phony || .
 
-build CMakeFiles/EX3_TEST.dir/tweets_generator.c.o: C_COMPILER__EX3_TEST_unscanned_Debug /Users/yonghaolee/Documents/C$:CPP_winter_2024/Ex_3/EX3-TEST/tweets_generator.c || cmake_object_order_depends_target_EX3_TEST
-  DEP_FILE = CMakeFiles/EX3_TEST.dir/tweets_generator.c.o.d
+build CMakeFiles/EX3_TEST.dir/snakes_and_ladders.c.o: C_COMPILER__EX3_TEST_unscanned_Debug /Users/yonghaolee/Documents/C$:CPP_winter_2024/Ex_3/EX3-TEST/snakes_and_ladders.c || cmake_object_order_depends_target_EX3_TEST
+  DEP_FILE = CMakeFiles/EX3_TEST.dir/snakes_and_ladders.c.o.d
   FLAGS = -g -std=gnu99 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk -fcolor-diagnostics
   OBJECT_DIR = CMakeFiles/EX3_TEST.dir
   OBJECT_FILE_DIR = CMakeFiles/EX3_TEST.dir
@@ -75,7 +75,7 @@ build CMakeFiles/EX3_TEST.dir/linked_list.c.o: C_COMPILER__EX3_TEST_unscanned_De
 #############################################
 # Link the executable EX3_TEST
 
-build EX3_TEST: C_EXECUTABLE_LINKER__EX3_TEST_Debug CMakeFiles/EX3_TEST.dir/tweets_generator.c.o CMakeFiles/EX3_TEST.dir/markov_chain.c.o CMakeFiles/EX3_TEST.dir/linked_list.c.o
+build EX3_TEST: C_EXECUTABLE_LINKER__EX3_TEST_Debug CMakeFiles/EX3_TEST.dir/snakes_and_ladders.c.o CMakeFiles/EX3_TEST.dir/markov_chain.c.o CMakeFiles/EX3_TEST.dir/linked_list.c.o
   FLAGS = -g -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk
   OBJECT_DIR = CMakeFiles/EX3_TEST.dir
   POST_BUILD = :
