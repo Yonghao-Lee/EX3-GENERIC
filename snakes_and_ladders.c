@@ -57,11 +57,6 @@ static const Cell *g_prev_cell = NULL;
 /**
  * Reset the "previous cell" pointer before printing a new random sequence.
  */
-void reset_sequence_printing(void)
-{
-    g_prev_cell = NULL;
-}
-
 
 int compare_cells(const void *data1, const void *data2) {
     if (!data1 || !data2) {
