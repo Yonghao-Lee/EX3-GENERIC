@@ -277,7 +277,11 @@ MarkovNode* get_next_random_node(MarkovNode* cur_markov_node) {
     }
     return NULL; // theoretically never happens
 }
+static const void *prev_data = NULL;
 
+void reset_sequence_printing() {
+    prev_data = NULL;
+}
 /**
  * Generate and print a random sequence from first_node,
  * or until we hit a terminal node, up to max_length steps.

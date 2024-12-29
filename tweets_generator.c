@@ -21,6 +21,19 @@ MarkovChain* initialize_markov_chain();
  * Determines if a word is a terminal word (ends with a period).
  * Returns true if it is, false otherwise.
  */
+
+char* my_strdup(const char* str) {
+  if (!str) return NULL;
+  size_t len = strlen(str) + 1;
+  char* copy = malloc(len);
+  if (!copy) {
+    printf("Memory allocation failed in my_strdup\n");
+    return NULL;
+  }
+  memcpy(copy, str, len);
+  return copy;
+}
+
 bool is_terminal_word(const void *data) {
   if (data == NULL) {
     return false;
@@ -46,7 +59,7 @@ void* copy_string(const void *data) {
   if (data == NULL) {
     return NULL;
   }
-  char *copy = strdup((const char *)data);
+  char *copy = my_strdup((const char *)data);
   if (copy == NULL) {
     fprintf(stderr, "Error: strdup failed in copy_string.\n");
   }
